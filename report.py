@@ -26,7 +26,14 @@ if not pdf_file.lower().endswith(".pdf"):
     pdf_file += ".pdf"
 
 # -----------------------------
-# 3️⃣ Filter and prepare statistics
+# 3️⃣ Ask user for repository name
+# -----------------------------
+repo_name = input("Enter the repository name: ").strip()
+if not repo_name:
+    repo_name = os.path.basename(os.getcwd())
+
+# -----------------------------
+# 4️⃣ Filter and prepare statistics
 # -----------------------------
 severity_count = {"INFO": 0, "WARNING": 0, "ERROR": 0}
 for r in all_results:
@@ -39,7 +46,7 @@ results = [r for r in all_results if r.get("extra", {}).get("severity", "").uppe
 total_findings = len(all_results)
 critical_findings = len(results)
 scan_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-repo_name = os.path.basename(os.getcwd())
+scan_date_short = datetime.now().strftime("%Y-%m-%d")
 
 # -----------------------------
 # 4️⃣ CNES-style Jinja2 HTML template
@@ -262,7 +269,7 @@ tr:hover { background: #edf2f7; }
     <h1>SAST EXECUTIVE REPORT</h1>
     <div class="subtitle">Static Application Security Testing Analysis</div>
     <div class="meta"><strong>Repository:</strong> {{ repo_name }}</div>
-    <div class="meta"><strong>Scan Date:</strong> {{ scan_date }}</div>
+    <div class="meta"><strong>Scan Date:</strong> {{ scan_date_short }}</div>
     <div class="meta"><strong>Report Type:</strong> CNES-Style Executive Summary</div>
     <div class="badge-container">
         <div class="badge warning">{{ severity.WARNING }} WARNINGS</div>
@@ -382,6 +389,7 @@ template = Template(html_template)
 html_out = template.render(
     repo_name=repo_name,
     scan_date=scan_date,
+    scan_date_short=scan_date_short,
     total_findings=total_findings,
     critical_findings=critical_findings,
     severity=severity_count,
