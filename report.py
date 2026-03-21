@@ -8,7 +8,7 @@ from weasyprint import HTML
 # 1️⃣ Ask user for JSON file
 # -----------------------------
 while True:
-    json_path = input("Enter the path to your Semgrep JSON file: ").strip()
+    json_path = input("Enter the path to your report JSON file: ").strip()
     if os.path.isfile(json_path):
         break
     print("File not found. Please enter a valid path.")
@@ -117,7 +117,7 @@ html_out = template.render(
 )
 
 # Save temporary HTML (optional, useful for debugging)
-html_file = "temp_semgrep_report.html"
+html_file = "temp_report.html"
 with open(html_file, "w", encoding="utf-8") as f:
     f.write(html_out)
 
