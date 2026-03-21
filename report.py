@@ -35,13 +35,31 @@ if not repo_name:
 # -----------------------------
 # 4️⃣ Filter and prepare statistics
 # -----------------------------
-severity_count = {"INFO": 0, "WARNING": 0, "ERROR": 0}
+def get_severity_level(result):
+    impact = result.get("extra", {}).get("metadata", {}).get("impact", "LOW").upper()
+    likelihood = result.get("extra", {}).get("metadata", {}).get("likelihood", "LOW").upper()
+    severity_type = result.get("extra", {}).get("severity", "INFO").upper()
+    
+    if severity_type == "ERROR":
+        return "CRITICAL"
+    elif impact == "HIGH" or likelihood == "HIGH":
+        return "HIGH"
+    elif impact == "MEDIUM" or likelihood == "MEDIUM":
+        return "MEDIUM"
+    else:
+        return "LOW"
+
+severity_count = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
 for r in all_results:
     sev = r.get("extra", {}).get("severity", "INFO").upper()
-    if sev in severity_count:
-        severity_count[sev] += 1
+    if sev in ("WARNING", "ERROR"):
+        level = get_severity_level(r)
+        if level in severity_count:
+            severity_count[level] += 1
 
 results = [r for r in all_results if r.get("extra", {}).get("severity", "").upper() in ("WARNING", "ERROR")]
+for r in results:
+    r["computed_severity"] = get_severity_level(r)
 
 total_findings = len(all_results)
 critical_findings = len(results)
@@ -109,8 +127,10 @@ body {
     font-weight: bold;
     font-size: 14pt;
 }
-.cover .badge.warning { background: #fed7aa; color: #c2410c; border: 2px solid #ea580c; }
-.cover .badge.error { background: #fecaca; color: #b91c1c; border: 2px solid #dc2626; }
+.cover .badge.critical { background: #7f1d1d; color: white; border: 2px solid #991b1b; }
+.cover .badge.high { background: #dc2626; color: white; border: 2px solid #b91c1c; }
+.cover .badge.medium { background: #f59e0b; color: white; border: 2px solid #d97706; }
+.cover .badge.low { background: #22c55e; color: white; border: 2px solid #16a34a; }
 .header {
     background: linear-gradient(135deg, #1a365d 0%, #2d5a87 100%);
     color: white;
@@ -214,8 +234,10 @@ tr:hover { background: #edf2f7; }
     font-size: 8pt;
     text-transform: uppercase;
 }
-.severity-WARNING { background: #fed7aa; color: #c2410c; }
-.severity-ERROR { background: #fecaca; color: #b91c1c; }
+.severity-CRITICAL { background: #7f1d1d; color: white; }
+.severity-HIGH { background: #dc2626; color: white; }
+.severity-MEDIUM { background: #f59e0b; color: white; }
+.severity-LOW { background: #22c55e; color: white; }
 .check-id { 
     font-family: monospace; 
     font-size: 8pt;
@@ -272,8 +294,10 @@ tr:hover { background: #edf2f7; }
     <div class="meta"><strong>Scan Date:</strong> {{ scan_date_short }}</div>
     <div class="meta"><strong>Report Type:</strong> CNES-Style Executive Summary</div>
     <div class="badge-container">
-        <div class="badge warning">{{ severity.WARNING }} WARNINGS</div>
-        <div class="badge error">{{ severity.ERROR }} ERRORS</div>
+        <div class="badge critical">{{ severity.CRITICAL }} CRITICAL</div>
+        <div class="badge high">{{ severity.HIGH }} HIGH</div>
+        <div class="badge medium">{{ severity.MEDIUM }} MEDIUM</div>
+        <div class="badge low">{{ severity.LOW }} LOW</div>
     </div>
 </div>
 
@@ -292,37 +316,34 @@ tr:hover { background: #edf2f7; }
             <div class="number">{{ critical_findings }}</div>
             <div class="label">Actionable Items<br/>(WARNING/ERROR)</div>
         </div>
-        <div class="summary-item">
-            <div class="number">{{ severity.ERROR }}</div>
-            <div class="label">Critical Issues</div>
-        </div>
-        <div class="summary-item">
-            <div class="number">{{ severity.WARNING }}</div>
-            <div class="label">Warnings</div>
-        </div>
     </div>
 </div>
 
 <div class="risk-matrix">
     <h3>Risk Distribution</h3>
+    <div class="risk-item high" style="background: #fef2f2; border-color: #7f1d1d;">
+        <div class="risk-level" style="color: #7f1d1d;">Critical</div>
+        <div class="risk-count">{{ severity.CRITICAL }}</div>
+    </div>
     <div class="risk-item high">
         <div class="risk-level">High Risk</div>
-        <div class="risk-count">{{ severity.ERROR }}</div>
+        <div class="risk-count">{{ severity.HIGH }}</div>
     </div>
     <div class="risk-item medium">
         <div class="risk-level">Medium Risk</div>
-        <div class="risk-count">{{ severity.WARNING }}</div>
+        <div class="risk-count">{{ severity.MEDIUM }}</div>
     </div>
     <div class="risk-item low">
-        <div class="risk-level">Low Risk (Filtered)</div>
-        <div class="risk-count">{{ severity.INFO }}</div>
+        <div class="risk-level">Low Risk</div>
+        <div class="risk-count">{{ severity.LOW }}</div>
     </div>
 </div>
 
 <p style="font-size: 10pt; color: #4a5568; margin: 20px 0;">
     <strong>Methodology:</strong> This report presents findings from automated Static Application Security Testing (SAST) analysis. 
     Only WARNING and ERROR severity findings are included in the detailed table below, as INFO-level findings do not require 
-    immediate action. Findings have been categorized according to CWE and OWASP standards.
+    immediate action. Severity levels (CRITICAL/HIGH/MEDIUM/LOW) are determined based on impact and likelihood metrics. 
+    Findings have been categorized according to CWE and OWASP standards.
 </p>
 
 <div class="page-break"></div>
@@ -343,7 +364,7 @@ tr:hover { background: #edf2f7; }
 <tbody>
 {% for r in results %}
 <tr>
-    <td><span class="severity-badge severity-{{ r.extra.severity }}">{{ r.extra.severity }}</span></td>
+    <td><span class="severity-badge severity-{{ r.computed_severity }}">{{ r.computed_severity }}</span></td>
     <td>
         <div class="file-path">{{ r.path }}</div>
         <div style="color: #718096; font-size: 8pt;">Line {{ r.start.line }}</div>
@@ -406,4 +427,4 @@ with open(html_file, "w", encoding="utf-8") as f:
 HTML(string=html_out).write_pdf(pdf_file)
 
 print(f"✅ CNES-style executive SAST report generated: {pdf_file}")
-print(f"   Filtered to {critical_findings} actionable items ({severity_count['WARNING']} warnings, {severity_count['ERROR']} errors)")
+print(f"   Filtered to {critical_findings} actionable items (Critical: {severity_count['CRITICAL']}, High: {severity_count['HIGH']}, Medium: {severity_count['MEDIUM']}, Low: {severity_count['LOW']})")
