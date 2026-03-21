@@ -240,9 +240,10 @@ tr:hover { background: #edf2f7; }
 .severity-LOW { background: #22c55e; color: white; }
 .check-id { 
     font-family: monospace; 
-    font-size: 8pt;
+    font-size: 7pt;
     color: #4a5568;
     word-break: break-all;
+    line-height: 1.3;
 }
 .file-path {
     font-family: monospace;
@@ -355,10 +356,10 @@ tr:hover { background: #edf2f7; }
 <thead>
     <tr>
         <th style="width: 8%">Severity</th>
-        <th style="width: 25%">File Location</th>
-        <th style="width: 15%">Rule ID</th>
-        <th style="width: 35%">Description</th>
-        <th style="width: 17%">Security Standards</th>
+        <th style="width: 22%">File Location</th>
+        <th style="width: 28%">Rule ID</th>
+        <th style="width: 30%">Description</th>
+        <th style="width: 12%">Security Standards</th>
     </tr>
 </thead>
 <tbody>
