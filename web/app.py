@@ -1,6 +1,7 @@
 import os
 import json
 import uuid
+import io
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, make_response
 from jinja2 import Template
@@ -11,10 +12,8 @@ app.secret_key = os.urandom(24)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, 'uploads')
-PDF_DIR = os.path.join(BASE_DIR, 'pdfs')
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(PDF_DIR, exist_ok=True)
 
 REPORT_TEMPLATE = """
 <!DOCTYPE html>
@@ -393,10 +392,10 @@ def generate_pdf(json_path: str, repo_name: str) -> str:
         severity=severity_count,
         results=results,
     )
-    pdf_filename = f'report_{uuid.uuid4().hex}.pdf'
-    pdf_path = os.path.join(PDF_DIR, pdf_filename)
-    HTML(string=html_out).write_pdf(pdf_path)
-    return pdf_path
+    pdf_buffer = io.BytesIO()
+    HTML(string=html_out).write_pdf(pdf_buffer)
+    pdf_buffer.seek(0)
+    return pdf_buffer
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -413,8 +412,13 @@ def index():
         json_path = os.path.join(UPLOAD_DIR, f'scan_{temp_id}.json')
         uploaded.save(json_path)
         try:
-            pdf_path = generate_pdf(json_path, repo_name)
-            return send_file(pdf_path, as_attachment=True, download_name='sast_report.pdf')
+            pdf_buffer = generate_pdf(json_path, repo_name)
+            return send_file(
+                pdf_buffer,
+                mimetype='application/pdf',
+                as_attachment=True,
+                download_name='sast_report.pdf'
+            )
         except Exception as e:
             flash(f'Error generating report: {e}', 'error')
             return redirect(request.url)
