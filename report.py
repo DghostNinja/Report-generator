@@ -51,13 +51,11 @@ def get_severity_level(result):
 
 severity_count = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
 for r in all_results:
-    sev = r.get("extra", {}).get("severity", "INFO").upper()
-    if sev in ("WARNING", "ERROR"):
-        level = get_severity_level(r)
-        if level in severity_count:
-            severity_count[level] += 1
+    level = get_severity_level(r)
+    if level in severity_count:
+        severity_count[level] += 1
 
-results = [r for r in all_results if r.get("extra", {}).get("severity", "").upper() in ("WARNING", "ERROR")]
+results = all_results
 for r in results:
     r["computed_severity"] = get_severity_level(r)
 
