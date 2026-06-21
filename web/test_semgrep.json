@@ -1,0 +1,64 @@
+{
+  "results": [
+    {
+      "check_id": "python.lang.security.sql-injection",
+      "path": "src/db/query.py",
+      "start": { "line": 42 },
+      "extra": {
+        "message": "User input directly concatenated into SQL query. Use parameterized statements to prevent SQL injection.",
+        "severity": "ERROR",
+        "metadata": {
+          "impact": "HIGH",
+          "likelihood": "HIGH",
+          "cwe": ["CWE-89", "CWE-20"],
+          "technology": ["python", "sqlite"]
+        }
+      }
+    },
+    {
+      "check_id": "javascript.lang.security.xss",
+      "path": "src/web/render.js",
+      "start": { "line": 15 },
+      "extra": {
+        "message": "Unescaped user input rendered as HTML. May lead to cross-site scripting.",
+        "severity": "WARNING",
+        "metadata": {
+          "impact": "HIGH",
+          "likelihood": "MEDIUM",
+          "cwe": ["CWE-79"],
+          "technology": ["javascript"]
+        }
+      }
+    },
+    {
+      "check_id": "generic.security.hardcoded-secret",
+      "path": "src/config/settings.py",
+      "start": { "line": 3 },
+      "extra": {
+        "message": "Hardcoded API key detected. Use environment variables or secret manager instead.",
+        "severity": "WARNING",
+        "metadata": {
+          "impact": "MEDIUM",
+          "likelihood": "HIGH",
+          "cwe": ["CWE-798", "CWE-259"],
+          "technology": ["python"]
+        }
+      }
+    },
+    {
+      "check_id": "java.lang.security.insecure-deserialization",
+      "path": "src/core/Serializer.java",
+      "start": { "line": 88 },
+      "extra": {
+        "message": "Insecure deserialization detected. Use safe deserialization methods.",
+        "severity": "INFO",
+        "metadata": {
+          "impact": "LOW",
+          "likelihood": "LOW",
+          "cwe": ["CWE-502"],
+          "technology": ["java"]
+        }
+      }
+    }
+  ]
+}

@@ -362,9 +362,7 @@ def compute_severity_level(result):
         return 'MEDIUM'
     return 'LOW'
 
-def generate_pdf(json_path: str, repo_name: str) -> str:
-    with open(json_path, encoding='utf-8') as f:
-        data = json.load(f)
+def generate_pdf(data: dict, repo_name: str) -> io.BytesIO:
     all_results = data.get('results', [])
     severity_count = {'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0, 'LOW': 0}
     for r in all_results:
@@ -410,7 +408,9 @@ def index():
         json_path = os.path.join(UPLOAD_DIR, f'scan_{temp_id}.json')
         uploaded.save(json_path)
         try:
-            pdf_buffer = generate_pdf(json_path, repo_name)
+            with open(json_path, encoding='utf-8') as f:
+                data = json.load(f)
+            pdf_buffer = generate_pdf(data, repo_name)
             return send_file(
                 pdf_buffer,
                 mimetype='application/pdf',
@@ -428,6 +428,39 @@ def index():
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
     return response
+
+@app.route('/api/v1/generate-report', methods=['POST'])
+def api_generate_report():
+    repo_name = ''
+
+    if request.is_json:
+        data = request.get_json()
+        if not data or 'results' not in data:
+            return {'error': 'Invalid Semgrep JSON: missing "results" key'}, 400
+        repo_name = request.args.get('repo_name', '')
+    elif request.files:
+        uploaded = request.files.get('file')
+        repo_name = request.form.get('repo_name', '').strip()
+        if not uploaded or uploaded.filename == '':
+            return {'error': 'No file uploaded'}, 400
+        try:
+            data = json.load(uploaded)
+        except json.JSONDecodeError:
+            return {'error': 'Invalid JSON file'}, 400
+    else:
+        return {'error': 'Send JSON body (Content-Type: application/json) or multipart form with "file" field'}, 400
+
+    try:
+        pdf_buffer = generate_pdf(data, repo_name)
+        return send_file(
+            pdf_buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name='sast_report.pdf'
+        )
+    except Exception as e:
+        return {'error': f'Failed to generate report: {str(e)}'}, 500
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

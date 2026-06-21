@@ -45,21 +45,151 @@
             flex-direction: column;
             gap: 12px;
         }
-        .upload-section input[type="file"] {
-            padding: 8px;
-            background: #0f3460;
-            border: 1px solid #0f3460;
-            border-radius: 4px;
-            color: #eee;
-        }
-        .upload-section input[type="text"] {
-            padding: 8px;
-            font-size: 1rem;
-            background: #0f3460;
-            border: 1px solid #0f3460;
-            border-radius: 4px;
-            color: #eee;
-        }
+.upload-section input[type="file"] {
+    padding: 8px;
+    background: #0f3460;
+    border: 1px solid #0f3460;
+    border-radius: 4px;
+    color: #eee;
+}
+.upload-section input[type="text"] {
+    padding: 8px;
+    font-size: 1rem;
+    background: #0f3460;
+    border: 1px solid #0f3460;
+    border-radius: 4px;
+    color: #eee;
+}
+.api-section {
+    margin-top: 2rem;
+}
+.tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 0;
+}
+.tab-btn {
+    background: #0f3460;
+    color: #999;
+    border: 1px solid #0f3460;
+    border-bottom: none;
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.tab-btn:hover {
+    background: #1a3f6a;
+    color: #ddd;
+}
+.tab-btn.active {
+    background: #16213e;
+    color: #4fc3f7;
+    border-color: #0f3460;
+}
+.tab-content {
+    display: none;
+    background: #16213e;
+    border: 1px solid #0f3460;
+    border-radius: 0 8px 8px 8px;
+    padding: 1.5rem;
+}
+.tab-content.active {
+    display: block;
+}
+.tab-content h3 {
+    color: #4fc3f7;
+    margin-bottom: 0.5rem;
+}
+.tab-content p {
+    color: #aaa;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+.code-block {
+    background: #0d1b2a;
+    border: 1px solid #1a3a5c;
+    border-radius: 6px;
+    padding: 1rem;
+    position: relative;
+    margin-bottom: 1rem;
+}
+.code-block code {
+    display: block;
+    white-space: pre-wrap;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: #e0e0e0;
+    line-height: 1.6;
+    overflow-x: auto;
+}
+.copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #1a3a5c;
+    color: #4fc3f7;
+    border: none;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.copy-btn:hover {
+    background: #0f3460;
+}
+.endpoint-badge {
+    display: inline-block;
+    background: #4fc3f7;
+    color: #1a1a2e;
+    font-weight: bold;
+    font-size: 0.8rem;
+    padding: 3px 10px;
+    border-radius: 4px;
+    margin-right: 8px;
+}
+.endpoint-url {
+    color: #eee;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+}
+.param-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+}
+.param-table th,
+.param-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid #0f3460;
+}
+.param-table th {
+    color: #4fc3f7;
+    font-weight: 500;
+}
+.param-table td {
+    color: #ccc;
+}
+.param-table tr:last-child td {
+    border-bottom: none;
+}
+.param-table .optional {
+    color: #f59e0b;
+    font-size: 0.8rem;
+}
+.param-table .required {
+    color: #dc2626;
+    font-size: 0.8rem;
+}
+.github-corner {
+    display: none;
+}
         button {
             background: #4fc3f7;
             color: #1a1a2e;
@@ -107,6 +237,90 @@
             <button type="submit">Generate PDF Report</button>
         </form>
     </div>
+
+    <div class="card api-section">
+        <h2>API — Pipeline Integration</h2>
+        <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 1rem; line-height: 1.5;">
+            Use the <strong>POST /api/v1/generate-report</strong> endpoint to generate reports directly from your CI/CD pipeline.
+        </p>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab(event, 'json-tab')">JSON Body</button>
+            <button class="tab-btn" onclick="switchTab(event, 'upload-tab')">File Upload</button>
+            <button class="tab-btn" onclick="switchTab(event, 'params-tab')">Parameters</button>
+        </div>
+
+        <div id="json-tab" class="tab-content active">
+            <h3>Pipe semgrep output directly</h3>
+            <p>Run semgrep with JSON output and pipe it straight to the API. The report PDF is saved locally.</p>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <code>semgrep --json | curl -X POST https://sast-report-generator.onrender.com/api/v1/generate-report \<br>  -H "Content-Type: application/json" -d @- -o sast_report.pdf</code>
+            </div>
+            <h3 style="margin-top: 1.5rem;">With repository name</h3>
+            <p>Pass a repo name via query parameter to label the report.</p>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <code>semgrep --json | curl -X POST "https://sast-report-generator.onrender.com/api/v1/generate-report?repo_name=my-app" \<br>  -H "Content-Type: application/json" -d @- -o sast_report.pdf</code>
+            </div>
+        </div>
+
+        <div id="upload-tab" class="tab-content">
+            <h3>Upload a saved JSON file</h3>
+            <p>If you already have a semgrep results file, upload it with the file field.</p>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <code>curl -X POST https://sast-report-generator.onrender.com/api/v1/generate-report \<br>  -F "file=@results.json" -F "repo_name=my-app" -o sast_report.pdf</code>
+            </div>
+        </div>
+
+        <div id="params-tab" class="tab-content">
+            <h3>Request Parameters</h3>
+            <table class="param-table">
+                <tr>
+                    <th style="width: 25%">Parameter</th>
+                    <th style="width: 15%">Location</th>
+                    <th style="width: 12%">Required</th>
+                    <th style="width: 48%">Description</th>
+                </tr>
+                <tr>
+                    <td><code>file</code></td>
+                    <td>multipart form</td>
+                    <td><span class="required">required*</span></td>
+                    <td>Semgrep JSON results file</td>
+                </tr>
+                <tr>
+                    <td><code>repo_name</code></td>
+                    <td>form / query</td>
+                    <td><span class="optional">optional</span></td>
+                    <td>Name of the repository for the report header</td>
+                </tr>
+            </table>
+            <p style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">
+                * For JSON body requests, the entire semgrep JSON is sent as the request body instead of the file field.
+            </p>
+            <h3 style="margin-top: 1.5rem;">Response</h3>
+            <p style="color: #aaa; font-size: 0.9rem;">
+                Success: <code style="color: #22c55e;">200 OK</code> — returns the PDF with <code>Content-Type: application/pdf</code>.<br>
+                Error: <code style="color: #dc2626;">400 / 500</code> — returns a JSON object with an <code>error</code> field.
+            </p>
+        </div>
+    </div>
 </div>
+
+<script>
+function switchTab(event, tabId) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    event.currentTarget.classList.add('active');
+}
+function copyCode(btn) {
+    const code = btn.parentElement.querySelector('code').innerText;
+    navigator.clipboard.writeText(code.replace(/<br>\s*/g, '\n'));
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+}
+</script>
 </body>
 </html>
