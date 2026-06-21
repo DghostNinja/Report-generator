@@ -24,10 +24,16 @@ Format is **auto-detected** — just pipe the JSON and get a PDF back.
 
 ### Local Development
 
+**Quick start (recommended):**
 ```bash
-git clone <repo-url>
+git clone https://github.com/DghostNinja/Report-generator.git
 cd Report-generator
-pip install flask>=3.0.0 jinja2>=3.0.0 weasyprint>=60.0
+pip install -r requirements.txt
+./start.sh
+```
+
+Or step-by-step:
+```bash
 cd web
 python app.py
 ```
