@@ -6,6 +6,9 @@ from datetime import datetime
 from jinja2 import Template
 from weasyprint import HTML
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'web'))
+from normalizers import normalize, make_severity_count
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -21,11 +24,10 @@ while True:
 with open(json_path, encoding="utf-8") as f:
     data = json.load(f)
 
-if "results" not in data:
-    print("Error: Invalid Semgrep JSON — missing \"results\" key.")
+tool_name, findings = normalize(data)
+if not findings:
+    print("Error: Unrecognized input format.\nSupported formats: Semgrep, SARIF (CodeQL, Trivy, etc.), Snyk.\nSave your tool's JSON output to a file and point to it here.")
     sys.exit(1)
-
-all_results = data.get("results", [])
 
 # -----------------------------
 # 2️⃣ Ask user for PDF output
@@ -47,39 +49,12 @@ if not repo_name:
     repo_name = os.path.basename(os.getcwd())
 
 # -----------------------------
-# 4️⃣ Filter and prepare statistics
+# 4️⃣ Prepare statistics
 # -----------------------------
-def get_severity_level(result):
-    impact = result.get("extra", {}).get("metadata", {}).get("impact", "LOW").upper()
-    likelihood = result.get("extra", {}).get("metadata", {}).get("likelihood", "LOW").upper()
-    severity_type = result.get("extra", {}).get("severity", "INFO").upper()
-    
-    if severity_type == "ERROR":
-        return "CRITICAL"
-    elif impact == "HIGH" or likelihood == "HIGH":
-        return "HIGH"
-    elif impact == "MEDIUM" or likelihood == "MEDIUM":
-        return "MEDIUM"
-    else:
-        return "LOW"
-
-severity_count = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
-for r in all_results:
-    level = get_severity_level(r)
-    if level in severity_count:
-        severity_count[level] += 1
-
-results = all_results
-for r in results:
-    r["computed_severity"] = get_severity_level(r)
-    meta = r.get("extra", {}).get("metadata", {})
-    if isinstance(meta.get("cwe"), str):
-        meta["cwe"] = [meta["cwe"]]
-    if isinstance(meta.get("technology"), str):
-        meta["technology"] = [meta["technology"]]
-
-total_findings = len(all_results)
-critical_findings = len(results)
+severity_count = make_severity_count(findings)
+results = findings
+total_findings = len(findings)
+critical_findings = len(findings)
 scan_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 scan_date_short = datetime.now().strftime("%Y-%m-%d")
 
@@ -310,7 +285,8 @@ tr:hover { background: #edf2f7; }
     <div class="subtitle">Static Application Security Testing Analysis</div>
     <div class="meta"><strong>Repository:</strong> {{ repo_name }}</div>
     <div class="meta"><strong>Scan Date:</strong> {{ scan_date_short }}</div>
-    <div class="meta"><strong>Report Type:</strong> CNES-Style Executive Summary</div>
+    <div class="meta"><strong>Tool:</strong> {{ tool_name }}</div>
+    <div class="meta"><strong>Report Type:</strong> Executive Summary</div>
     <div class="badge-container">
         <div class="badge critical">{{ severity.CRITICAL }} CRITICAL</div>
         <div class="badge high">{{ severity.HIGH }} HIGH</div>
@@ -332,7 +308,7 @@ tr:hover { background: #edf2f7; }
         </div>
         <div class="summary-item">
             <div class="number">{{ critical_findings }}</div>
-            <div class="label">Actionable Items<br/>(WARNING/ERROR)</div>
+            <div class="label">Total Findings</div>
         </div>
     </div>
 </div>
@@ -358,10 +334,10 @@ tr:hover { background: #edf2f7; }
 </div>
 
 <p style="font-size: 10pt; color: #4a5568; margin: 20px 0;">
-    <strong>Methodology:</strong> This report presents findings from automated Static Application Security Testing (SAST) analysis. 
-    Only WARNING and ERROR severity findings are included in the detailed table below, as INFO-level findings do not require 
-    immediate action. Severity levels (CRITICAL/HIGH/MEDIUM/LOW) are determined based on impact and likelihood metrics. 
-    Findings have been categorized according to CWE and OWASP standards.
+    <strong>Methodology:</strong> This report presents findings from automated security analysis. 
+    Findings are categorized by severity (CRITICAL / HIGH / MEDIUM / LOW) and mapped to 
+    relevant CWE identifiers where available. Each finding includes the file location, 
+    rule identifier, and a description of the issue.
 </p>
 
 <div class="page-break"></div>
@@ -382,22 +358,22 @@ tr:hover { background: #edf2f7; }
 <tbody>
 {% for r in results %}
 <tr>
-    <td><span class="severity-badge severity-{{ r.computed_severity }}">{{ r.computed_severity }}</span></td>
+    <td><span class="severity-badge severity-{{ r.severity }}">{{ r.severity }}</span></td>
     <td>
         <div class="file-path">{{ r.path }}</div>
-        <div style="color: #718096; font-size: 8pt;">Line {{ r.start.line }}</div>
+        <div style="color: #718096; font-size: 8pt;">Line {{ r.line }}</div>
     </td>
     <td class="check-id">{{ r.check_id }}</td>
-    <td class="description">{{ r.extra.message }}</td>
+    <td class="description">{{ r.message }}</td>
     <td>
-        {% if r.extra.metadata.cwe %}
-            {% for cwe in r.extra.metadata.cwe[:2] %}
+        {% if r.cwe %}
+            {% for cwe in r.cwe[:2] %}
                 <span class="cwe-tag">{{ cwe }}</span>
             {% endfor %}
         {% endif %}
-        {% if r.extra.metadata.technology %}
+        {% if r.technology %}
             <br/>
-            {% for tech in r.extra.metadata.technology[:2] %}
+            {% for tech in r.technology[:2] %}
                 <span class="technology-tag">{{ tech }}</span>
             {% endfor %}
         {% endif %}
@@ -426,6 +402,7 @@ tr:hover { background: #edf2f7; }
 # -----------------------------
 template = Template(html_template, autoescape=True)
 html_out = template.render(
+    tool_name=tool_name,
     repo_name=repo_name,
     scan_date=scan_date,
     scan_date_short=scan_date_short,

@@ -1,28 +1,22 @@
-# SAST Executive Report Generator
+# Security Report Generator
 
-Generate professional PDF security reports from **Semgrep** SAST scan results. Upload a JSON results file via the web UI or call the API directly from your CI/CD pipeline.
+Generate professional PDF security reports from SAST/SCA scan results. Upload a JSON results file via the web UI or call the API directly from your CI/CD pipeline.
 
----
+**Supported tools:**
+- **Semgrep** — SAST (static analysis)
+- **SARIF** — Standard format (CodeQL, Trivy, Roslyn, etc.)
+- **Snyk** — SCA/container scanning
 
-## Table of Contents
-
-- [Features](#features)
-- [Quick Start](#quick-start)
-- [Usage](#usage)
-  - [Web Interface](#web-interface)
-  - [API — CI/CD Pipeline Integration](#api--cicd-pipeline-integration)
-  - [CLI (Local)](#cli-local)
-- [Project Structure](#project-structure)
-- [Technology Stack](#technology-stack)
+Format is **auto-detected** — just pipe the JSON and get a PDF back.
 
 ---
 
 ## Features
 
 - **Professional PDF reports** — Executive summary with risk distribution, severity badges, and a detailed findings table.
-- **Automated severity computation** — Maps Semgrep severity and impact/likelihood metadata to CRITICAL / HIGH / MEDIUM / LOW.
+- **Auto-detects tool format** — Semgrep, SARIF, and Snyk all work without configuration.
 - **Multiple interfaces** — Web upload form, REST API, and standalone CLI script.
-- **Pipeline-ready** — Pipe `semgrep --json` output directly to the API and get a PDF back.
+- **Pipeline-ready** — Pipe any supported tool's JSON output directly to the API.
 
 ---
 
@@ -31,27 +25,23 @@ Generate professional PDF security reports from **Semgrep** SAST scan results. U
 ### Local Development
 
 ```bash
-# Clone the repository
 git clone <repo-url>
 cd Report-generator
-
-# Install dependencies
 pip install flask>=3.0.0 jinja2>=3.0.0 weasyprint>=60.0
-
-# Start the web server
 cd web
 python app.py
 ```
 
-Open [http://localhost:5000](http://localhost:5000) in your browser.
+Open [http://localhost:5000](http://localhost:5000).
 
-### Generate a Report (Minimal Example)
+### Generate a Report
 
-1. Run Semgrep on your project:
-   ```bash
-   semgrep --json > results.json
-   ```
-2. Open [http://localhost:5000](http://localhost:5000), upload `results.json`, and click **Generate PDF Report**.
+```bash
+semgrep --json > results.json
+# Upload via the web UI, or:
+curl -X POST http://localhost:5000/api/v1/generate-report \
+  -F "file=@results.json" -F "repo_name=my-app" -o sast_report.pdf
+```
 
 ---
 
@@ -59,57 +49,60 @@ Open [http://localhost:5000](http://localhost:5000) in your browser.
 
 ### Web Interface
 
-Navigate to the web app and use the upload form:
-
-1. Select your Semgrep JSON results file.
-2. Enter a repository name (optional — used in the report header).
+1. Select your scan results JSON file (Semgrep, SARIF, or Snyk).
+2. Enter a repository name (optional).
 3. Click **Generate PDF Report** to download.
 
 ### API — CI/CD Pipeline Integration
 
-The `POST /api/v1/generate-report` endpoint is designed for pipeline automation. It accepts Semgrep JSON and returns a PDF.
+The `POST /api/v1/generate-report` endpoint auto-detects the tool format. No need to specify which tool you're using.
 
-> The examples below use the live hosted version at `https://sast-report-generator.onrender.com`. Replace with `http://localhost:5000` if running locally.
+> Replace `https://sast-report-generator.onrender.com` with `http://localhost:5000` if running locally.
 
-#### Common Pipeline Patterns
+#### Semgrep
 
-- **Pipe Semgrep output directly** — The most common approach for CI/CD:
+```bash
+semgrep --json | curl -X POST https://sast-report-generator.onrender.com/api/v1/generate-report \
+  -H "Content-Type: application/json" -d @- -o sast_report.pdf
+```
 
-  ```bash
-  semgrep --json | curl -X POST https://sast-report-generator.onrender.com/api/v1/generate-report \
-    -H "Content-Type: application/json" \
-    -d @- \
-    -o sast_report.pdf
-  ```
+#### SARIF (CodeQL, Trivy, etc.)
 
-- **Include a repository name** — Labels the report with your repo name:
+```bash
+codeql database analyze --format=sarif-latest | curl -X POST \
+  https://sast-report-generator.onrender.com/api/v1/generate-report \
+  -H "Content-Type: application/json" -d @- -o sast_report.pdf
+```
 
-  ```bash
-  semgrep --json | curl -X POST "https://sast-report-generator.onrender.com/api/v1/generate-report?repo_name=my-app" \
-    -H "Content-Type: application/json" \
-    -d @- \
-    -o sast_report.pdf
-  ```
+#### Snyk
 
-- **Upload a saved JSON file** — For when you already have the results file:
+```bash
+snyk test --json | curl -X POST https://sast-report-generator.onrender.com/api/v1/generate-report \
+  -H "Content-Type: application/json" -d @- -o sast_report.pdf
+```
 
-  ```bash
-  curl -X POST https://sast-report-generator.onrender.com/api/v1/generate-report \
-    -F "file=@results.json" \
-    -F "repo_name=my-app" \
-    -o sast_report.pdf
-  ```
+#### With repository name
+
+```bash
+semgrep --json | curl -X POST "https://sast-report-generator.onrender.com/api/v1/generate-report?repo_name=my-app" \
+  -H "Content-Type: application/json" -d @- -o sast_report.pdf
+```
+
+#### Upload a saved file
+
+```bash
+curl -X POST https://sast-report-generator.onrender.com/api/v1/generate-report \
+  -F "file=@results.json" -F "repo_name=my-app" -o sast_report.pdf
+```
 
 #### Step-by-Step Breakdown
 
-Let's walk through what happens with the pipe command:
-
-1. **`semgrep --json`** — Runs Semgrep on your code and outputs the results as JSON to stdout.
-2. **`|`** (pipe) — Sends that JSON output to the next command.
+1. **Tool command** (`semgrep --json`, `snyk test --json`, etc.) — Runs the tool and outputs JSON to stdout.
+2. **`|`** (pipe) — Sends that JSON to the next command.
 3. **`curl -X POST <url>`** — Makes a POST request to the API endpoint.
 4. **`-H "Content-Type: application/json"`** — Tells the API you're sending JSON data.
-5. **`-d @-`** — Reads the piped data (`@-` means "read from stdin") and sends it as the request body.
-6. **`-o sast_report.pdf`** — Saves the response (the PDF) to a file named `sast_report.pdf`.
+5. **`-d @-`** — Reads the piped data (`@-` = stdin) and sends it as the request body.
+6. **`-o sast_report.pdf`** — Saves the response (the PDF) to a file.
 
 #### API Reference
 
@@ -117,10 +110,10 @@ Let's walk through what happens with the pipe command:
 
 | Parameter | Location | Required | Description |
 |-----------|----------|----------|-------------|
-| `file` | multipart form | required\* | Semgrep JSON results file |
+| `file` | multipart form | required\* | Security scan results (Semgrep, SARIF, Snyk) |
 | `repo_name` | form / query | optional | Repository name for the report header |
 
-\*For JSON body requests, the full Semgrep JSON is sent as the request body instead of using the `file` field.
+\*For JSON body requests, the entire JSON is sent as the request body. Tool format is auto-detected.
 
 **Responses:**
 
@@ -130,7 +123,7 @@ Let's walk through what happens with the pipe command:
 | `400 Bad Request` | Missing or invalid input — returns `{"error": "..."}` |
 | `500 Internal Server Error` | PDF generation failed — returns `{"error": "..."}` |
 
-#### Example: GitLab CI Job
+#### GitLab CI Example
 
 ```yaml
 sast-report:
@@ -139,23 +132,19 @@ sast-report:
   script:
     - pip install semgrep
     - semgrep --json | curl -X POST https://sast-report-generator.onrender.com/api/v1/generate-report
-        -H "Content-Type: application/json"
-        -d @-
-        -o sast_report.pdf
+        -H "Content-Type: application/json" -d @- -o sast_report.pdf
   artifacts:
     paths:
       - sast_report.pdf
 ```
 
-#### Example: GitHub Actions Job
+#### GitHub Actions Example
 
 ```yaml
 - name: Generate SAST Report
   run: |
     semgrep --json | curl -X POST https://sast-report-generator.onrender.com/api/v1/generate-report \
-      -H "Content-Type: application/json" \
-      -d @- \
-      -o sast_report.pdf
+      -H "Content-Type: application/json" -d @- -o sast_report.pdf
 - name: Upload Report
   uses: actions/upload-artifact@v4
   with:
@@ -165,16 +154,16 @@ sast-report:
 
 ### CLI (Local)
 
-You can also generate a report locally without the web server:
-
 ```bash
 python report.py
 ```
 
-The script will prompt you for:
-1. Path to your Semgrep JSON file.
+The script prompts for:
+1. Path to your scan results JSON file.
 2. Output PDF filename.
 3. Repository name.
+
+---
 
 ## Project Structure
 
@@ -182,6 +171,12 @@ The script will prompt you for:
 Report-generator/
 ├── web/
 │   ├── app.py                  # Flask web application and API
+│   ├── normalizers/            # Tool format normalizers
+│   │   ├── base.py             # Common schema (Finding dataclass)
+│   │   ├── semgrep.py          # Semgrep normalizer
+│   │   ├── sarif.py            # SARIF normalizer
+│   │   ├── snyk.py             # Snyk normalizer
+│   │   └── __init__.py         # Auto-detect dispatcher
 │   ├── templates/
 │   │   └── index.html          # Web UI frontend
 │   └── uploads/                # Temporary uploaded files
@@ -189,6 +184,7 @@ Report-generator/
 ├── requirements.txt            # Python dependencies
 ├── render.yaml                 # Render deployment configuration
 ├── start.sh                    # Local development launcher
+├── LICENSE/LICENSE.txt         # MIT License
 └── README.md                   # This file
 ```
 
@@ -201,25 +197,32 @@ Report-generator/
 | Web Framework | [Flask](https://flask.palletsprojects.com/) |
 | PDF Generation | [WeasyPrint](https://weasyprint.org/) |
 | Template Engine | [Jinja2](https://jinja.palletsprojects.com/) |
-| SAST Tool | [Semgrep](https://semgrep.dev/) |
+| SAST Tools | [Semgrep](https://semgrep.dev/), [SARIF](https://sarifweb.azurewebsites.net/), [Snyk](https://snyk.io/) |
 | Languages | Python, HTML/CSS, JavaScript |
 
 ---
 
-## Input Format
+## Input Formats
 
-The API expects a **Semgrep JSON output** file. Generate it with:
-
+### Semgrep
 ```bash
 semgrep --json > results.json
 ```
 
-The JSON should contain a `results` array where each result has `check_id`, `path`, `start.line`, and `extra` fields (with `severity`, `message`, and optional `metadata.impact` / `metadata.likelihood`).
+### SARIF (CodeQL, Trivy, etc.)
+```bash
+codeql database analyze --format=sarif-latest > results.sarif
+trivy fs --format sarif . > results.sarif
+```
+
+### Snyk
+```bash
+snyk test --json > results.json
+snyk code test --json > results.json
+```
 
 ---
 
 ## License
 
 This project is licensed under the [MIT License](LICENSE/LICENSE.txt).
-
-

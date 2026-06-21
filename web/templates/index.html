@@ -225,7 +225,8 @@
 <div class="container">
     <h1>SAST Executive Report Generator</h1>
     <div class="card">
-        <h2>Upload Scan Report JSON</h2>
+        <h2>Upload Scan Results</h2>
+        <p style="color: #aaa; font-size: 0.85rem; margin-bottom: 0.5rem;">Supports Semgrep JSON, SARIF (CodeQL, Trivy, etc.), and Snyk formats.</p>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="error">{{ messages[0][1] }}</div>
@@ -240,9 +241,10 @@
 
     <div class="card api-section">
         <h2>API — Pipeline Integration</h2>
-        <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 1rem; line-height: 1.5;">
-            Use the <strong>POST /api/v1/generate-report</strong> endpoint to generate reports directly from your CI/CD pipeline.
-        </p>
+            <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 1rem; line-height: 1.5;">
+                Use the <strong>POST /api/v1/generate-report</strong> endpoint to generate reports directly from your CI/CD pipeline.
+                <strong>Auto-detects</strong> Semgrep, SARIF (CodeQL, Trivy, etc.), and Snyk formats.
+            </p>
 
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab(event, 'json-tab')">JSON Body</button>
@@ -251,12 +253,27 @@
         </div>
 
         <div id="json-tab" class="tab-content active">
-            <h3>Pipe semgrep output directly</h3>
-            <p>Run semgrep with JSON output and pipe it straight to the API. The report PDF is saved locally.</p>
+            <h3>Semgrep</h3>
+            <p>Pipe semgrep JSON output directly to the API.</p>
             <div class="code-block">
                 <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                 <code>semgrep --json | curl -X POST https://sast-report-generator.onrender.com/api/v1/generate-report \<br>  -H "Content-Type: application/json" -d @- -o sast_report.pdf</code>
             </div>
+
+            <h3 style="margin-top: 1.5rem;">SARIF (CodeQL, Trivy, etc.)</h3>
+            <p>Pipe any tool that outputs SARIF format.</p>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <code>codeql database analyze --format=sarif-latest | curl -X POST \<br>  https://sast-report-generator.onrender.com/api/v1/generate-report \<br>  -H "Content-Type: application/json" -d @- -o sast_report.pdf</code>
+            </div>
+
+            <h3 style="margin-top: 1.5rem;">Snyk</h3>
+            <p>Pipe Snyk test JSON output.</p>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <code>snyk test --json | curl -X POST https://sast-report-generator.onrender.com/api/v1/generate-report \<br>  -H "Content-Type: application/json" -d @- -o sast_report.pdf</code>
+            </div>
+
             <h3 style="margin-top: 1.5rem;">With repository name</h3>
             <p>Pass a repo name via query parameter to label the report.</p>
             <div class="code-block">
@@ -287,7 +304,7 @@
                     <td><code>file</code></td>
                     <td>multipart form</td>
                     <td><span class="required">required*</span></td>
-                    <td>Semgrep JSON results file</td>
+                    <td>Security scan results (Semgrep, SARIF, Snyk)</td>
                 </tr>
                 <tr>
                     <td><code>repo_name</code></td>
@@ -297,7 +314,7 @@
                 </tr>
             </table>
             <p style="color: #888; font-size: 0.8rem; margin-top: 0.5rem;">
-                * For JSON body requests, the entire semgrep JSON is sent as the request body instead of the file field.
+                * For JSON body requests, the entire JSON output is sent as the request body instead of the file field. Tool format is auto-detected (Semgrep, SARIF, Snyk).
             </p>
             <h3 style="margin-top: 1.5rem;">Response</h3>
             <p style="color: #aaa; font-size: 0.9rem;">

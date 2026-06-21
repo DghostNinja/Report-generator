@@ -8,6 +8,8 @@ from flask import Flask, render_template, request, redirect, url_for, send_file,
 from jinja2 import Template
 from weasyprint import HTML
 
+from normalizers import normalize, make_severity_count
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -244,7 +246,8 @@ tr:hover { background: #edf2f7; }
     <div class="subtitle">Static Application Security Testing Analysis</div>
     <div class="meta"><strong>Repository:</strong> {{ repo_name }}</div>
     <div class="meta"><strong>Scan Date:</strong> {{ scan_date_short }}</div>
-    <div class="meta"><strong>Report Type:</strong> CNES-Style Executive Summary</div>
+    <div class="meta"><strong>Tool:</strong> {{ tool_name }}</div>
+    <div class="meta"><strong>Report Type:</strong> Executive Summary</div>
     <div class="badge-container">
         <div class="badge critical">{{ severity.CRITICAL }} CRITICAL</div>
         <div class="badge high">{{ severity.HIGH }} HIGH</div>
@@ -266,7 +269,7 @@ tr:hover { background: #edf2f7; }
         </div>
         <div class="summary-item">
             <div class="number">{{ critical_findings }}</div>
-            <div class="label">Actionable Items<br/>(WARNING/ERROR)</div>
+            <div class="label">Total Findings</div>
         </div>
     </div>
 </div>
@@ -292,10 +295,10 @@ tr:hover { background: #edf2f7; }
 </div>
 
 <p style="font-size: 10pt; color: #4a5568; margin: 20px 0;">
-    <strong>Methodology:</strong> This report presents findings from automated Static Application Security Testing (SAST) analysis. 
-    Only WARNING and ERROR severity findings are included in the detailed table below, as INFO-level findings do not require 
-    immediate action. Severity levels (CRITICAL/HIGH/MEDIUM/LOW) are determined based on impact and likelihood metrics. 
-    Findings have been categorized according to CWE and OWASP standards.
+    <strong>Methodology:</strong> This report presents findings from automated security analysis. 
+    Findings are categorized by severity (CRITICAL / HIGH / MEDIUM / LOW) and mapped to 
+    relevant CWE identifiers where available. Each finding includes the file location, 
+    rule identifier, and a description of the issue.
 </p>
 
 <div class="page-break"></div>
@@ -316,22 +319,22 @@ tr:hover { background: #edf2f7; }
 <tbody>
 {% for r in results %}
 <tr>
-    <td><span class="severity-badge severity-{{ r.computed_severity }}">{{ r.computed_severity }}</span></td>
+    <td><span class="severity-badge severity-{{ r.severity }}">{{ r.severity }}</span></td>
     <td>
         <div class="file-path">{{ r.path }}</div>
-        <div style="color: #718096; font-size: 8pt;">Line {{ r.start.line }}</div>
+        <div style="color: #718096; font-size: 8pt;">Line {{ r.line }}</div>
     </td>
     <td class="check-id">{{ r.check_id }}</td>
-    <td class="description">{{ r.extra.message }}</td>
+    <td class="description">{{ r.message }}</td>
     <td>
-        {% if r.extra.metadata.cwe %}
-            {% for cwe in r.extra.metadata.cwe[:2] %}
+        {% if r.cwe %}
+            {% for cwe in r.cwe[:2] %}
                 <span class="cwe-tag">{{ cwe }}</span>
             {% endfor %}
         {% endif %}
-        {% if r.extra.metadata.technology %}
+        {% if r.technology %}
             <br/>
-            {% for tech in r.extra.metadata.technology[:2] %}
+            {% for tech in r.technology[:2] %}
                 <span class="technology-tag">{{ tech }}</span>
             {% endfor %}
         {% endif %}
@@ -355,48 +358,25 @@ tr:hover { background: #edf2f7; }
 </html>
 """
 
-def compute_severity_level(result):
-    impact = result.get('extra', {}).get('metadata', {}).get('impact', 'LOW').upper()
-    likelihood = result.get('extra', {}).get('metadata', {}).get('likelihood', 'LOW').upper()
-    severity_type = result.get('extra', {}).get('severity', 'INFO').upper()
-    if severity_type == 'ERROR':
-        return 'CRITICAL'
-    if impact == 'HIGH' or likelihood == 'HIGH':
-        return 'HIGH'
-    if impact == 'MEDIUM' or likelihood == 'MEDIUM':
-        return 'MEDIUM'
-    return 'LOW'
-
 def generate_pdf(data: dict, repo_name: str) -> io.BytesIO:
-    all_results = data.get('results', [])
-    severity_count = {'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0, 'LOW': 0}
-    for r in all_results:
-        level = compute_severity_level(r)
-        if level in severity_count:
-            severity_count[level] += 1
-    results = all_results
-    for r in results:
-        r['computed_severity'] = compute_severity_level(r)
-        meta = r.get('extra', {}).get('metadata', {})
-        if isinstance(meta.get('cwe'), str):
-            meta['cwe'] = [meta['cwe']]
-        if isinstance(meta.get('technology'), str):
-            meta['technology'] = [meta['technology']]
-    total_findings = len(all_results)
-    critical_findings = len(results)
+    tool_name, findings = normalize(data)
+    if not findings:
+        raise ValueError(f'Unrecognized input format. Supported tools: Semgrep, SARIF, Snyk')
+    severity_count = make_severity_count(findings)
+    total_findings = len(findings)
     now = datetime.now()
     scan_date = now.strftime('%Y-%m-%d %H:%M:%S')
     scan_date_short = now.strftime('%Y-%m-%d')
-    
     template = Template(REPORT_TEMPLATE, autoescape=True)
     html_out = template.render(
+        tool_name=tool_name,
         repo_name=repo_name or os.path.basename(os.getcwd()),
         scan_date=scan_date,
         scan_date_short=scan_date_short,
         total_findings=total_findings,
-        critical_findings=critical_findings,
+        critical_findings=total_findings,
         severity=severity_count,
-        results=results,
+        results=findings,
     )
     pdf_buffer = io.BytesIO()
     HTML(string=html_out).write_pdf(pdf_buffer)
@@ -427,6 +407,9 @@ def index():
                 as_attachment=True,
                 download_name='sast_report.pdf'
             )
+        except ValueError as e:
+            flash(str(e), 'error')
+            return redirect(request.url)
         except Exception:
             logger.exception('Failed to generate report')
             flash('Error generating report. Please check your input and try again.', 'error')
@@ -446,8 +429,8 @@ def api_generate_report():
 
     if request.is_json:
         data = request.get_json()
-        if not data or 'results' not in data:
-            return {'error': 'Invalid Semgrep JSON: missing "results" key'}, 400
+        if not data:
+            return {'error': 'Empty request body'}, 400
         repo_name = request.args.get('repo_name', '')
     elif request.files:
         uploaded = request.files.get('file')
@@ -469,6 +452,8 @@ def api_generate_report():
             as_attachment=True,
             download_name='sast_report.pdf'
         )
+    except ValueError as e:
+        return {'error': str(e)}, 400
     except Exception:
         logger.exception('API report generation failed')
         return {'error': 'Failed to generate report. Please check your input and try again.'}, 500
