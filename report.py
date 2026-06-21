@@ -72,6 +72,11 @@ for r in all_results:
 results = all_results
 for r in results:
     r["computed_severity"] = get_severity_level(r)
+    meta = r.get("extra", {}).get("metadata", {})
+    if isinstance(meta.get("cwe"), str):
+        meta["cwe"] = [meta["cwe"]]
+    if isinstance(meta.get("technology"), str):
+        meta["technology"] = [meta["technology"]]
 
 total_findings = len(all_results)
 critical_findings = len(results)
