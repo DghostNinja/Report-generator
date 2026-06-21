@@ -1,8 +1,13 @@
 import json
 import os
+import sys
+import logging
 from datetime import datetime
 from jinja2 import Template
 from weasyprint import HTML
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
+logger = logging.getLogger(__name__)
 
 # -----------------------------
 # 1️⃣ Ask user for JSON file
@@ -16,12 +21,21 @@ while True:
 with open(json_path, encoding="utf-8") as f:
     data = json.load(f)
 
+if "results" not in data:
+    print("Error: Invalid Semgrep JSON — missing \"results\" key.")
+    sys.exit(1)
+
 all_results = data.get("results", [])
 
 # -----------------------------
 # 2️⃣ Ask user for PDF output
 # -----------------------------
 pdf_file = input("Enter PDF output file name (e.g., report.pdf): ").strip()
+if not pdf_file:
+    print("Error: No filename provided.")
+    sys.exit(1)
+# Prevent path traversal in filename
+pdf_file = os.path.basename(pdf_file)
 if not pdf_file.lower().endswith(".pdf"):
     pdf_file += ".pdf"
 
@@ -405,7 +419,7 @@ tr:hover { background: #edf2f7; }
 # -----------------------------
 # 5️⃣ Render HTML
 # -----------------------------
-template = Template(html_template)
+template = Template(html_template, autoescape=True)
 html_out = template.render(
     repo_name=repo_name,
     scan_date=scan_date,
@@ -416,14 +430,16 @@ html_out = template.render(
     results=results
 )
 
-html_file = "temp_report.html"
-with open(html_file, "w", encoding="utf-8") as f:
-    f.write(html_out)
-
 # -----------------------------
 # 6️⃣ Generate PDF
 # -----------------------------
-HTML(string=html_out).write_pdf(pdf_file)
+try:
+    HTML(string=html_out).write_pdf(pdf_file)
+except Exception:
+    logger.exception("Failed to generate PDF")
+    print("Error: Failed to generate PDF. Check your input and try again.")
+    sys.exit(1)
 
-print(f"✅ CNES-style executive SAST report generated: {pdf_file}")
-print(f"   Filtered to {critical_findings} actionable items (Critical: {severity_count['CRITICAL']}, High: {severity_count['HIGH']}, Medium: {severity_count['MEDIUM']}, Low: {severity_count['LOW']})")
+print(f"SAST report generated: {pdf_file}")
+print(f"   Total findings: {total_findings}")
+print(f"   Critical: {severity_count['CRITICAL']}, High: {severity_count['HIGH']}, Medium: {severity_count['MEDIUM']}, Low: {severity_count['LOW']}")

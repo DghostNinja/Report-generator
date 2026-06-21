@@ -2,13 +2,18 @@ import os
 import json
 import uuid
 import io
+import logging
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, make_response
 from jinja2 import Template
 from weasyprint import HTML
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, 'uploads')
@@ -378,7 +383,7 @@ def generate_pdf(data: dict, repo_name: str) -> io.BytesIO:
     scan_date = now.strftime('%Y-%m-%d %H:%M:%S')
     scan_date_short = now.strftime('%Y-%m-%d')
     
-    template = Template(REPORT_TEMPLATE)
+    template = Template(REPORT_TEMPLATE, autoescape=True)
     html_out = template.render(
         repo_name=repo_name or os.path.basename(os.getcwd()),
         scan_date=scan_date,
@@ -417,8 +422,9 @@ def index():
                 as_attachment=True,
                 download_name='sast_report.pdf'
             )
-        except Exception as e:
-            flash(f'Error generating report: {e}', 'error')
+        except Exception:
+            logger.exception('Failed to generate report')
+            flash('Error generating report. Please check your input and try again.', 'error')
             return redirect(request.url)
         finally:
             if os.path.exists(json_path):
@@ -458,9 +464,11 @@ def api_generate_report():
             as_attachment=True,
             download_name='sast_report.pdf'
         )
-    except Exception as e:
-        return {'error': f'Failed to generate report: {str(e)}'}, 500
+    except Exception:
+        logger.exception('API report generation failed')
+        return {'error': 'Failed to generate report. Please check your input and try again.'}, 500
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    debug_mode = os.environ.get('FLASK_DEBUG', '0') == '1'
+    app.run(host='0.0.0.0', port=5000, debug=debug_mode)
