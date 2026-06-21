@@ -229,14 +229,22 @@
             padding: 10px;
             border-radius: 4px;
         }
-        @media (max-width: 480px) {
-            .card {
-                padding: 1rem;
-            }
-            button {
-                width: 100%;
-                margin-top: 10px;
-            }
+        @media (max-width: 640px) {
+            .container { padding: 1rem 0.5rem; }
+            .card { padding: 0.8rem; }
+            h1 { font-size: 1.3rem; }
+            .tabs { flex-wrap: wrap; gap: 2px; }
+            .tab-btn { flex: 1; min-width: 0; padding: 8px 6px; font-size: 0.75rem; text-align: center; }
+            .tab-content { padding: 0.8rem; border-radius: 0 0 8px 8px; }
+            .tab-content p { font-size: 0.8rem; }
+            .code-block { padding: 0.6rem; padding-top: 2rem; }
+            .code-block code { font-size: 0.65rem; white-space: pre-wrap; word-break: break-all; }
+            .copy-btn { top: 4px; right: 4px; padding: 3px 8px; font-size: 0.65rem; }
+            .param-table { font-size: 0.7rem; }
+            .param-table th, .param-table td { padding: 4px 6px; }
+            button { width: 100%; font-size: 0.9rem; padding: 10px; }
+            .github-corner { top: 6px; right: 6px; width: 34px; height: 34px; }
+            .github-corner svg { width: 20px; height: 20px; }
         }
     </style>
 </head>
@@ -345,6 +353,27 @@
             </p>
         </div>
     </div>
+</div>
+
+<div style="text-align: center; padding: 2rem 1rem; border-top: 1px solid #0f3460; margin-top: 2rem; max-width: 900px; margin-left: auto; margin-right: auto;">
+    <div style="margin-bottom: 0.8rem;">
+        <span style="display: inline-block; background: #0f3460; color: #aaa; padding: 3px 10px; border-radius: 4px; font-size: 0.75rem; margin: 2px;">Semgrep</span>
+        <span style="display: inline-block; background: #0f3460; color: #aaa; padding: 3px 10px; border-radius: 4px; font-size: 0.75rem; margin: 2px;">SARIF</span>
+        <span style="display: inline-block; background: #0f3460; color: #aaa; padding: 3px 10px; border-radius: 4px; font-size: 0.75rem; margin: 2px;">Snyk</span>
+    </div>
+    <p style="color: #666; font-size: 0.8rem; margin: 0.3rem 0;">
+        <a href="https://github.com/DghostNinja/Report-generator/issues" style="color: #4fc3f7;">Report an issue</a>
+        &nbsp;·&nbsp;
+        <a href="https://github.com/DghostNinja/Report-generator" style="color: #4fc3f7;">GitHub</a>
+        &nbsp;·&nbsp;
+        MIT License
+    </p>
+    <p style="color: #888; font-size: 0.75rem; margin: 0.3rem 0;">
+        Findings should be reviewed by qualified security personnel.
+    </p>
+    <p style="color: #555; font-size: 0.7rem; margin: 0.3rem 0;">
+        Made by <a href="https://github.com/DghostNinja" style="color: #4fc3f7;">iPsalmy</a>
+    </p>
 </div>
 
 <script>
