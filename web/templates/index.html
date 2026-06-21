@@ -13,10 +13,25 @@
         }
         body, html {
             height: 100%;
-            background-color: #1a1a2e !important;
-            background: #1a1a2e !important;
             color: #eee;
             font-family: 'Roboto', sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460, #1a1a2e);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .container {
+            animation: fadeIn 0.6s ease-out;
         }
         .github-corner {
             position: fixed;
@@ -57,6 +72,11 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             margin-bottom: 2rem;
             border: 1px solid #0f3460;
+            transition: box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+        .card:hover {
+            border-color: #4fc3f7;
+            box-shadow: 0 4px 24px rgba(79, 195, 247, 0.15);
         }
         .card h2 {
             color: #eee;
@@ -246,6 +266,24 @@
             .github-corner { top: 6px; right: 6px; width: 34px; height: 34px; }
             .github-corner svg { width: 20px; height: 20px; }
         }
+        .spinner {
+            display: none;
+            width: 18px;
+            height: 18px;
+            border: 3px solid rgba(79, 195, 247, 0.3);
+            border-top-color: #4fc3f7;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .btn-loading {
+            pointer-events: none;
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
@@ -264,8 +302,8 @@
         {% endwith %}
         <form method="post" enctype="multipart/form-data" class="upload-section">
             <input type="file" name="file" accept=".json" required>
-            <input type="text" name="repo_name" placeholder="Repository name (optional)" required>
-            <button type="submit">Generate PDF Report</button>
+            <input type="text" name="repo_name" placeholder="Repository name (optional)">
+            <button type="submit" id="generateBtn"><span class="spinner" id="spinner"></span><span id="btnText">Generate PDF Report</span></button>
         </form>
     </div>
 
@@ -389,6 +427,43 @@ function copyCode(btn) {
     btn.textContent = 'Copied!';
     setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
 }
+
+document.querySelector('form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('generateBtn');
+    const spinner = document.getElementById('spinner');
+    const btnText = document.getElementById('btnText');
+    spinner.style.display = 'inline-block';
+    btnText.textContent = ' Generating...';
+    btn.classList.add('btn-loading');
+
+    fetch('/', { method: 'POST', body: new FormData(this) })
+        .then(r => {
+            const ct = r.headers.get('content-type') || '';
+            if (ct.includes('application/pdf')) return r.blob();
+            if (ct.includes('application/json')) return r.json().then(e => { throw new Error(e.error || 'Generation failed'); });
+            window.location.reload();
+            return Promise.reject();
+        })
+        .then(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sast_report.pdf';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        })
+        .catch(err => {
+            if (err && err.message) alert('Error: ' + err.message);
+        })
+        .finally(() => {
+            spinner.style.display = 'none';
+            btnText.textContent = 'Generate PDF Report';
+            btn.classList.remove('btn-loading');
+        });
+});
 </script>
 </body>
 </html>
