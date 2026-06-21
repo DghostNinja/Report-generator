@@ -49,7 +49,7 @@ if not repo_name:
     repo_name = os.path.basename(os.getcwd())
 
 # -----------------------------
-# 4️⃣ Prepare statistics
+# 4️⃣ Render HTML template
 # -----------------------------
 severity_count = make_severity_count(findings)
 results = findings
@@ -59,7 +59,7 @@ scan_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 scan_date_short = datetime.now().strftime("%Y-%m-%d")
 
 # -----------------------------
-# 4️⃣ CNES-style Jinja2 HTML template
+# 5️⃣ Jinja2 HTML template
 # -----------------------------
 html_template = """
 <!DOCTYPE html>
@@ -284,9 +284,8 @@ tr:hover { background: #edf2f7; }
     <h1>SAST EXECUTIVE REPORT</h1>
     <div class="subtitle">Static Application Security Testing Analysis</div>
     <div class="meta"><strong>Repository:</strong> {{ repo_name }}</div>
-    <div class="meta"><strong>Scan Date:</strong> {{ scan_date_short }}</div>
+    <div class="meta"><strong>Scan Date:</strong> {{ scan_date }}</div>
     <div class="meta"><strong>Tool:</strong> {{ tool_name }}</div>
-    <div class="meta"><strong>Report Type:</strong> Executive Summary</div>
     <div class="badge-container">
         <div class="badge critical">{{ severity.CRITICAL }} CRITICAL</div>
         <div class="badge high">{{ severity.HIGH }} HIGH</div>
@@ -342,7 +341,7 @@ tr:hover { background: #edf2f7; }
 
 <div class="page-break"></div>
 
-<h2 class="section-title">Detailed Findings (WARNING/ERROR Only)</h2>
+<h2 class="section-title">Detailed Findings</h2>
 
 {% if results %}
 <table>
@@ -379,12 +378,19 @@ tr:hover { background: #edf2f7; }
         {% endif %}
     </td>
 </tr>
+{% if r.remediation %}
+<tr>
+    <td colspan="5" style="padding: 2px 8px 10px; font-size: 8pt; color: #2d5a87; border-bottom: 1px solid #e2e8f0;">
+        <strong>Remediation:</strong> {{ r.remediation }}
+    </td>
+</tr>
+{% endif %}
 {% endfor %}
 </tbody>
 </table>
 {% else %}
 <p style="text-align: center; padding: 40px; color: #16a34a; font-size: 14pt;">
-    No WARNING or ERROR findings detected. Your code passes security checks.
+    No findings detected.
 </p>
 {% endif %}
 
@@ -398,7 +404,7 @@ tr:hover { background: #edf2f7; }
 """
 
 # -----------------------------
-# 5️⃣ Render HTML
+# 6️⃣ Render HTML
 # -----------------------------
 template = Template(html_template, autoescape=True)
 html_out = template.render(
@@ -413,7 +419,7 @@ html_out = template.render(
 )
 
 # -----------------------------
-# 6️⃣ Generate PDF
+# 7️⃣ Generate PDF
 # -----------------------------
 try:
     HTML(string=html_out).write_pdf(pdf_file)

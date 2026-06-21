@@ -6,6 +6,7 @@
       "start": { "line": 42 },
       "extra": {
         "message": "User input concatenated into SQL query. Use parameterized statements.",
+        "fix": "cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))",
         "severity": "ERROR",
         "metadata": {
           "impact": "HIGH",

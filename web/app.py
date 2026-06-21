@@ -340,6 +340,13 @@ tr:hover { background: #edf2f7; }
         {% endif %}
     </td>
 </tr>
+{% if r.remediation %}
+<tr>
+    <td colspan="5" style="padding: 2px 8px 10px; font-size: 8pt; color: #2d5a87; border-bottom: 1px solid #e2e8f0;">
+        <strong>Remediation:</strong> {{ r.remediation }}
+    </td>
+</tr>
+{% endif %}
 {% endfor %}
 </tbody>
 </table>

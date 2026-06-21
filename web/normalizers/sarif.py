@@ -28,12 +28,14 @@ def normalize(data: dict) -> list[Finding]:
             cwe = rule.get('cwe', [])
             location = _get_location(result)
             tech = [tool_name] if tool_name else []
+            remediation = _get_remediation(result)
             findings.append(Finding(
                 check_id=rule_id,
                 path=location.get('path', ''),
                 line=location.get('line', 0),
                 message=message,
                 severity=severity,
+                remediation=remediation,
                 cwe=cwe,
                 technology=tech,
             ))
@@ -76,6 +78,16 @@ def _get_location(result: dict) -> dict:
     region = phys.get('region', {})
     line = region.get('startLine', region.get('startColumn', 0))
     return {'path': path, 'line': line}
+
+
+def _get_remediation(result: dict) -> str:
+    fixes = result.get('fixes', [])
+    for fix in fixes:
+        desc = fix.get('description', {})
+        text = desc.get('text', '') if isinstance(desc, dict) else str(desc)
+        if text:
+            return text
+    return ''
 
 
 def _get_tool_name(run: dict) -> str:

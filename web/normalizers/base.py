@@ -9,6 +9,7 @@ class Finding:
     line: int
     message: str
     severity: str
+    remediation: str = ''
     cwe: list[str] = field(default_factory=list)
     technology: list[str] = field(default_factory=list)
 

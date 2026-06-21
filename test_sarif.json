@@ -38,6 +38,13 @@
           "message": {
             "text": "Unsafe cyclic import detected. This module imports itself transitively, which can cause initialization order bugs and crashes."
           },
+          "fixes": [
+            {
+              "description": {
+                "text": "Restructure the module to remove the circular dependency. Move the shared code to a separate utility module."
+              }
+            }
+          ],
           "locations": [
             {
               "physicalLocation": {

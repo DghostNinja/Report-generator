@@ -23,12 +23,15 @@ def normalize(data: dict) -> list[Finding]:
         path = vuln.get('packageName', vuln.get('moduleName', ''))
         if vuln.get('path'):
             path = vuln['path']
+        fixed = vuln.get('fixedIn', [])
+        remediation = f'Upgrade to: {", ".join(fixed)}' if fixed else ''
         findings.append(Finding(
             check_id=vuln.get('id', ''),
             path=path,
             line=vuln.get('line', 0),
             message=vuln.get('title', vuln.get('description', '')),
             severity=severity,
+            remediation=remediation,
             cwe=cwe,
             technology=[vuln.get('packageName', '')],
         ))

@@ -14,19 +14,24 @@ def normalize(data: dict) -> list[Finding]:
     findings = []
     for r in data.get('results', []):
         severity = _compute_severity(r)
-        meta = r.get('extra', {}).get('metadata', {})
+        extra = r.get('extra', {})
+        meta = extra.get('metadata', {})
         cwe = meta.get('cwe', [])
         if isinstance(cwe, str):
             cwe = [cwe]
         tech = meta.get('technology', [])
         if isinstance(tech, str):
             tech = [tech]
+        remediation = extra.get('fix', '') or ''
+        if isinstance(remediation, dict):
+            remediation = remediation.get('regex', '')
         findings.append(Finding(
             check_id=r.get('check_id', ''),
             path=r.get('path', ''),
             line=r.get('start', {}).get('line', 0),
-            message=r.get('extra', {}).get('message', ''),
+            message=extra.get('message', ''),
             severity=severity,
+            remediation=remediation,
             cwe=cwe,
             technology=tech,
         ))
