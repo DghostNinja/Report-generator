@@ -130,21 +130,49 @@
             flex-direction: column;
             gap: 12px;
         }
-.upload-section input[type="file"] {
-    padding: 8px;
-    background: #0f3460;
-    border: 1px solid #0f3460;
-    border-radius: 4px;
-    color: #eee;
-}
-.upload-section input[type="text"] {
-    padding: 8px;
-    font-size: 1rem;
-    background: #0f3460;
-    border: 1px solid #0f3460;
-    border-radius: 4px;
-    color: #eee;
-}
+        .drop-zone {
+            border: 2px dashed #0f3460;
+            border-radius: 8px;
+            padding: 2rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.3s, background 0.3s;
+            color: #888;
+            font-size: 0.9rem;
+        }
+        .drop-zone:hover {
+            border-color: #4fc3f7;
+            background: rgba(79, 195, 247, 0.05);
+        }
+        .drop-zone.dragover {
+            border-color: #4fc3f7;
+            background: rgba(79, 195, 247, 0.1);
+            color: #4fc3f7;
+        }
+        .drop-zone.has-file {
+            border-color: #22c55e;
+            color: #22c55e;
+            border-style: solid;
+        }
+        .drop-zone .dz-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        .drop-zone .dz-file {
+            display: none;
+            font-weight: bold;
+            word-break: break-all;
+        }
+        .drop-zone.has-file .dz-prompt { display: none; }
+        .drop-zone.has-file .dz-file { display: block; }
+        input[type="text"] {
+            padding: 8px;
+            font-size: 1rem;
+            background: #0f3460;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            color: #eee;
+        }
 .api-section {
     margin-top: 2rem;
 }
@@ -345,7 +373,12 @@
             {% endif %}
         {% endwith %}
         <form method="post" enctype="multipart/form-data" class="upload-section">
-            <input type="file" name="file" accept=".json" required>
+            <div class="drop-zone" id="dropZone">
+                <div class="dz-icon">📄</div>
+                <div class="dz-prompt">Drop your JSON file here or click to browse</div>
+                <div class="dz-file" id="dzFile"></div>
+            </div>
+            <input type="file" name="file" id="fileInput" accept=".json" required style="display:none">
             <input type="text" name="repo_name" placeholder="Repository name (optional)">
             <button type="submit" id="generateBtn"><span class="spinner" id="spinner"></span><span id="btnText">Generate PDF Report</span></button>
         </form>
@@ -459,6 +492,30 @@
 </div>
 
 <script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length) {
+        fileInput.files = files;
+        showFile(files[0].name);
+    }
+});
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) showFile(fileInput.files[0].name);
+});
+function showFile(name) {
+    document.getElementById('dzFile').textContent = name;
+    dropZone.classList.add('has-file');
+}
+
 function switchTab(event, tabId) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
