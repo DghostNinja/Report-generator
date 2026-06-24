@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+web/__pycache__/
+web/normalizers/__pycache__/
+
+uploads/
+web/uploads/
+
+*.pdf
+*.log
+
+.env
+.venv
+venv/

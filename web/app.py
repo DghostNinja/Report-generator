@@ -2,9 +2,12 @@ import os
 import json
 import uuid
 import io
+import time
 import logging
+from collections import defaultdict, deque
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, send_file, flash, make_response
+from functools import wraps
+from flask import Flask, render_template, request, redirect, url_for, send_file, flash, make_response, jsonify
 from jinja2 import Template
 from weasyprint import HTML
 
@@ -16,6 +19,26 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+
+# --- Rate limiter ---
+_limits = defaultdict(lambda: defaultdict(deque))
+
+def rate_limit(max_reqs, window=60):
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            key = request.remote_addr or 'unknown'
+            now = time.time()
+            dq = _limits[f.__name__][key]
+            while dq and dq[0] < now - window:
+                dq.popleft()
+            if len(dq) >= max_reqs:
+                logger.warning('Rate limit hit for %s from %s', f.__name__, key)
+                return jsonify(error=f'Rate limit exceeded. Max {max_reqs} requests per {window}s.'), 429
+            dq.append(now)
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, 'uploads')
@@ -166,7 +189,7 @@ thead {
     color: white;
 }
 th { 
-    padding: 12px 8px; 
+    padding: 12px 12px; 
     text-align: left;
     font-weight: 600;
     text-transform: uppercase;
@@ -174,7 +197,7 @@ th {
     letter-spacing: 0.5px;
 }
 td { 
-    padding: 10px 8px; 
+    padding: 10px 12px; 
     vertical-align: top;
     border-bottom: 1px solid #e2e8f0;
 }
@@ -391,6 +414,7 @@ def generate_pdf(data: dict, repo_name: str) -> io.BytesIO:
     return pdf_buffer
 
 @app.route('/', methods=['GET', 'POST'])
+@rate_limit(20, 60)
 def index():
     if request.method == 'POST':
         uploaded = request.files.get('file')
@@ -431,6 +455,7 @@ def index():
     return response
 
 @app.route('/api/v1/generate-report', methods=['POST'])
+@rate_limit(10, 60)
 def api_generate_report():
     repo_name = ''
 

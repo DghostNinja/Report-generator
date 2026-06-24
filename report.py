@@ -205,7 +205,7 @@ thead {
     color: white;
 }
 th { 
-    padding: 12px 8px; 
+    padding: 12px 12px; 
     text-align: left;
     font-weight: 600;
     text-transform: uppercase;
@@ -213,7 +213,7 @@ th {
     letter-spacing: 0.5px;
 }
 td { 
-    padding: 10px 8px; 
+    padding: 10px 12px; 
     vertical-align: top;
     border-bottom: 1px solid #e2e8f0;
 }
