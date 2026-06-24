@@ -196,6 +196,7 @@ body {
 .risk-item .risk-count { font-size: 24pt; font-weight: bold; color: #1a365d; }
 table { 
     width: 100%; 
+    table-layout: fixed;
     border-collapse: collapse; 
     margin-top: 20px;
     font-size: 9pt;
@@ -209,13 +210,15 @@ th {
     text-align: left;
     font-weight: 600;
     text-transform: uppercase;
-    font-size: 8pt;
-    letter-spacing: 0.5px;
+    font-size: 7.5pt;
+    letter-spacing: 0.3px;
 }
 td { 
     padding: 10px 12px; 
     vertical-align: top;
     border-bottom: 1px solid #e2e8f0;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
 }
 tr:nth-child(even) { background: #f8fafc; }
 tr:hover { background: #edf2f7; }
@@ -234,7 +237,8 @@ tr:hover { background: #edf2f7; }
     font-family: monospace; 
     font-size: 7pt;
     color: #4a5568;
-    word-break: break-all;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
     line-height: 1.3;
 }
 .file-path {
@@ -347,11 +351,11 @@ tr:hover { background: #edf2f7; }
 <table>
 <thead>
     <tr>
-        <th style="width: 8%">Severity</th>
-        <th style="width: 22%">File Location</th>
-        <th style="width: 28%">Rule ID</th>
-        <th style="width: 30%">Description</th>
-        <th style="width: 12%">Security Standards</th>
+        <th style="width: 7%">Severity</th>
+        <th style="width: 20%">File Location</th>
+        <th style="width: 15%">Rule ID</th>
+        <th style="width: 35%">Description</th>
+        <th style="width: 23%">CWE / Tech</th>
     </tr>
 </thead>
 <tbody>
