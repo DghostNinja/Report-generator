@@ -11,7 +11,7 @@ from flask import Flask, render_template, request, redirect, url_for, send_file,
 from jinja2 import Template
 from weasyprint import HTML
 
-from normalizers import normalize, make_severity_count
+from normalizers import normalize, make_severity_count, merge_results
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
@@ -207,11 +207,12 @@ td {
 tr:nth-child(even) { background: #f8fafc; }
 tr:hover { background: #edf2f7; }
 .severity-badge {
-    padding: 4px 12px;
-    border-radius: 12px;
+    padding: 3px 10px;
+    border-radius: 10px;
     font-weight: bold;
-    font-size: 8pt;
+    font-size: 7.5pt;
     text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
 .severity-CRITICAL { background: #7f1d1d; color: white; }
 .severity-HIGH { background: #dc2626; color: white; }
@@ -336,11 +337,11 @@ tr:hover { background: #edf2f7; }
 <table>
 <thead>
     <tr>
-        <th style="width: 7%">Severity</th>
-        <th style="width: 20%">File Location</th>
+        <th style="width: 10%">Severity</th>
+        <th style="width: 19%">File Location</th>
         <th style="width: 15%">Rule ID</th>
-        <th style="width: 35%">Description</th>
-        <th style="width: 23%">CWE / Tech</th>
+        <th style="width: 34%">Description</th>
+        <th style="width: 22%">CWE / Tech</th>
     </tr>
 </thead>
 <tbody>
@@ -392,10 +393,18 @@ tr:hover { background: #edf2f7; }
 </html>
 """
 
-def generate_pdf(data: dict, repo_name: str) -> io.BytesIO:
-    tool_name, findings = normalize(data)
-    if not findings:
-        raise ValueError(f'Unrecognized input format. Supported tools: Semgrep, SARIF, Snyk')
+def generate_pdf(data, repo_name: str) -> io.BytesIO:
+    """Generate PDF from one or more scan data dicts.
+    Pass a single dict or a list of dicts for multi-tool merge."""
+    inputs = data if isinstance(data, list) else [data]
+    results = []
+    for d in inputs:
+        name, findings = normalize(d)
+        if findings:
+            results.append((name, findings))
+    if not results:
+        raise ValueError('Unrecognized input format. Supported: Semgrep, SARIF, Snyk')
+    tool_name, findings = merge_results(results)
     severity_count = make_severity_count(findings)
     total_findings = len(findings)
     now = datetime.now()
@@ -421,20 +430,32 @@ def generate_pdf(data: dict, repo_name: str) -> io.BytesIO:
 @rate_limit(20, 60)
 def index():
     if request.method == 'POST':
-        uploaded = request.files.get('file')
+        uploaded = request.files.getlist('file')
         repo_name = request.form.get('repo_name', '').strip()
-        if not uploaded:
+        if not uploaded or all(f.filename == '' for f in uploaded):
             flash('No file uploaded', 'error')
             return redirect(request.url)
-        if uploaded.filename == '':
-            flash('Empty filename', 'error')
+        datas = []
+        for f in uploaded:
+            if not f or not f.filename:
+                continue
+            temp_id = uuid.uuid4().hex
+            json_path = os.path.join(UPLOAD_DIR, f'scan_{temp_id}.json')
+            f.save(json_path)
+            try:
+                with open(json_path, encoding='utf-8') as jf:
+                    datas.append(json.load(jf))
+            except Exception:
+                flash(f'Invalid JSON in {f.filename}', 'error')
+                return redirect(request.url)
+            finally:
+                if os.path.exists(json_path):
+                    os.remove(json_path)
+        if not datas:
+            flash('No valid JSON files uploaded', 'error')
             return redirect(request.url)
-        temp_id = uuid.uuid4().hex
-        json_path = os.path.join(UPLOAD_DIR, f'scan_{temp_id}.json')
-        uploaded.save(json_path)
+        data = datas if len(datas) > 1 else datas[0]
         try:
-            with open(json_path, encoding='utf-8') as f:
-                data = json.load(f)
             pdf_buffer = generate_pdf(data, repo_name)
             return send_file(
                 pdf_buffer,
@@ -449,9 +470,6 @@ def index():
             logger.exception('Failed to generate report')
             flash('Error generating report. Please check your input and try again.', 'error')
             return redirect(request.url)
-        finally:
-            if os.path.exists(json_path):
-                os.remove(json_path)
     response = make_response(render_template('index.html'))
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
@@ -469,14 +487,18 @@ def api_generate_report():
             return {'error': 'Empty request body'}, 400
         repo_name = request.args.get('repo_name', '')
     elif request.files:
-        uploaded = request.files.get('file')
+        uploaded = request.files.getlist('file')
         repo_name = request.form.get('repo_name', '').strip()
-        if not uploaded or uploaded.filename == '':
+        if not uploaded or all(f.filename == '' for f in uploaded):
             return {'error': 'No file uploaded'}, 400
-        try:
-            data = json.load(uploaded)
-        except json.JSONDecodeError:
-            return {'error': 'Invalid JSON file'}, 400
+        datas = []
+        for f in uploaded:
+            if f and f.filename:
+                try:
+                    datas.append(json.load(f))
+                except json.JSONDecodeError:
+                    return {'error': f'Invalid JSON in {f.filename}'}, 400
+        data = datas if len(datas) > 1 else datas[0]
     else:
         return {'error': 'Send JSON body (Content-Type: application/json) or multipart form with "file" field'}, 400
 

@@ -24,3 +24,20 @@ def normalize(data: dict) -> tuple[str, list[Finding]]:
     if normalize_fn is None:
         return ('', [])
     return name, normalize_fn(data)
+
+
+def merge_results(results: list[tuple[str, list[Finding]]]) -> tuple[str, list[Finding]]:
+    """Merge multiple (tool_name, findings) pairs into one."""
+    names = []
+    all_findings = []
+    seen = set()
+    for name, findings in results:
+        if findings:
+            names.append(name)
+            for f in findings:
+                key = (f.path, f.line, f.message)
+                if key not in seen:
+                    seen.add(key)
+                    all_findings.append(f)
+    tool_label = ' + '.join(dict.fromkeys(names)) if names else ''
+    return tool_label, all_findings

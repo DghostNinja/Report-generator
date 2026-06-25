@@ -7,27 +7,52 @@ from jinja2 import Template
 from weasyprint import HTML
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'web'))
-from normalizers import normalize, make_severity_count
+from normalizers import normalize, make_severity_count, merge_results
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
 
 # -----------------------------
-# 1️⃣ Ask user for JSON file
+# 1️⃣ Ask user for JSON file(s)
 # -----------------------------
+def load_json_files(paths):
+    datas = []
+    for p in paths:
+        with open(p, encoding='utf-8') as f:
+            datas.append(json.load(f))
+    return datas
+
 while True:
-    json_path = input("Enter the path to your report JSON file: ").strip()
-    if os.path.isfile(json_path):
-        break
-    print("File not found. Please enter a valid path.")
+    raw = input("Enter path(s) to JSON file(s) (space-separated): ").strip()
+    paths = [p.strip() for p in raw.replace(',', ' ').split() if p.strip()]
+    if not paths:
+        print("Please enter at least one path.")
+        continue
+    missing = [p for p in paths if not os.path.isfile(p)]
+    if missing:
+        print(f"File(s) not found: {', '.join(missing)}")
+        continue
+    break
 
-with open(json_path, encoding="utf-8") as f:
-    data = json.load(f)
+all_datas = load_json_files(paths)
+data = all_datas if len(all_datas) > 1 else all_datas[0]
 
-tool_name, findings = normalize(data)
-if not findings:
-    print("Error: Unrecognized input format.\nSupported formats: Semgrep, SARIF (CodeQL, Trivy, etc.), Snyk.\nSave your tool's JSON output to a file and point to it here.")
-    sys.exit(1)
+# Normalize all, merge if multiple
+if isinstance(data, list):
+    results = []
+    for d in data:
+        name, findings = normalize(d)
+        if findings:
+            results.append((name, findings))
+    if not results:
+        print("Error: Unrecognized input format.\nSupported formats: Semgrep, SARIF (CodeQL, Trivy, etc.), Snyk.\nSave your tool's JSON output to a file and point to it here.")
+        sys.exit(1)
+    tool_name, findings = merge_results(results)
+else:
+    tool_name, findings = normalize(data)
+    if not findings:
+        print("Error: Unrecognized input format.\nSupported formats: Semgrep, SARIF (CodeQL, Trivy, etc.), Snyk.\nSave your tool's JSON output to a file and point to it here.")
+        sys.exit(1)
 
 # -----------------------------
 # 2️⃣ Ask user for PDF output
@@ -223,11 +248,12 @@ td {
 tr:nth-child(even) { background: #f8fafc; }
 tr:hover { background: #edf2f7; }
 .severity-badge {
-    padding: 4px 12px;
-    border-radius: 12px;
+    padding: 3px 10px;
+    border-radius: 10px;
     font-weight: bold;
-    font-size: 8pt;
+    font-size: 7.5pt;
     text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
 .severity-CRITICAL { background: #7f1d1d; color: white; }
 .severity-HIGH { background: #dc2626; color: white; }
@@ -351,11 +377,11 @@ tr:hover { background: #edf2f7; }
 <table>
 <thead>
     <tr>
-        <th style="width: 7%">Severity</th>
-        <th style="width: 20%">File Location</th>
+        <th style="width: 10%">Severity</th>
+        <th style="width: 19%">File Location</th>
         <th style="width: 15%">Rule ID</th>
-        <th style="width: 35%">Description</th>
-        <th style="width: 23%">CWE / Tech</th>
+        <th style="width: 34%">Description</th>
+        <th style="width: 22%">CWE / Tech</th>
     </tr>
 </thead>
 <tbody>

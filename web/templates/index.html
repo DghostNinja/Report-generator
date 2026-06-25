@@ -158,13 +158,14 @@
             font-size: 2rem;
             margin-bottom: 0.5rem;
         }
-        .drop-zone .dz-file {
+        .drop-zone .dz-count {
             display: none;
+            font-size: 1rem;
+            color: #22c55e;
             font-weight: bold;
-            word-break: break-all;
         }
         .drop-zone.has-file .dz-prompt { display: none; }
-        .drop-zone.has-file .dz-file { display: block; }
+        .drop-zone.has-file .dz-count { display: block; }
         input[type="text"] {
             padding: 8px;
             font-size: 1rem;
@@ -366,7 +367,7 @@
     <h1>SAST Executive Report Generator</h1>
     <div class="card">
         <h2>Upload Scan Results</h2>
-        <p style="color: #aaa; font-size: 0.85rem; margin-bottom: 0.5rem;">Supports Semgrep JSON, SARIF (CodeQL, Trivy, etc.), and Snyk formats.</p>
+        <p style="color: #aaa; font-size: 0.85rem; margin-bottom: 0.5rem;">Supports Semgrep JSON, SARIF (CodeQL, Trivy, etc.), and Snyk formats. Drop multiple files to merge reports.</p>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="error">{{ messages[0][1] }}</div>
@@ -375,10 +376,10 @@
         <form method="post" enctype="multipart/form-data" class="upload-section">
             <div class="drop-zone" id="dropZone">
                 <div class="dz-icon">📄</div>
-                <div class="dz-prompt">Drop your JSON file here or click to browse</div>
-                <div class="dz-file" id="dzFile"></div>
+                <div class="dz-prompt">Drop JSON file(s) here or click to browse</div>
+                <div class="dz-count" id="dzCount"></div>
             </div>
-            <input type="file" name="file" id="fileInput" accept=".json" required style="display:none">
+            <input type="file" name="file" id="fileInput" accept=".json" multiple required style="display:none">
             <input type="text" name="repo_name" placeholder="Repository name (optional)">
             <button type="submit" id="generateBtn"><span class="spinner" id="spinner"></span><span id="btnText">Generate PDF Report</span></button>
         </form>
@@ -425,14 +426,31 @@
                 <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                 <code>semgrep --json | curl -X POST "https://sast-report-generator.onrender.com/api/v1/generate-report?repo_name=my-app" \<br>  -H "Content-Type: application/json" -d @- -o sast_report.pdf</code>
             </div>
+
+            <h3 style="margin-top: 1.5rem;">Multi-tool merge (JSON array)</h3>
+            <p>Send an array of scan results to merge into one report.</p>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <code># Pipe two tools side by side:
+(semgrep --json; snyk test --json) | jq -s '.' | curl -X POST \
+  https://sast-report-generator.onrender.com/api/v1/generate-report \
+  -H "Content-Type: application/json" -d @- -o sast_report.pdf</code>
+            </div>
         </div>
 
         <div id="upload-tab" class="tab-content">
-            <h3>Upload a saved JSON file</h3>
-            <p>If you already have a semgrep results file, upload it with the file field.</p>
+            <h3>Single file</h3>
+            <p>Upload a saved JSON results file.</p>
             <div class="code-block">
                 <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                 <code>curl -X POST https://sast-report-generator.onrender.com/api/v1/generate-report \<br>  -F "file=@results.json" -F "repo_name=my-app" -o sast_report.pdf</code>
+            </div>
+
+            <h3 style="margin-top: 1.5rem;">Multi-file merge</h3>
+            <p>Upload multiple files — use a separate <code>-F "file=@..."</code> for each.</p>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <code>curl -X POST https://sast-report-generator.onrender.com/api/v1/generate-report \<br>  -F "file=@semgrep.json" -F "file=@snyk.json" -F "repo_name=my-app" -o sast_report.pdf</code>
             </div>
         </div>
 
@@ -449,7 +467,7 @@
                     <td><code>file</code></td>
                     <td>multipart form</td>
                     <td><span class="required">required*</span></td>
-                    <td>Security scan results (Semgrep, SARIF, Snyk)</td>
+                    <td>Security scan results (Semgrep, SARIF, Snyk). Use multiple <code>file</code> fields to merge tools.</td>
                 </tr>
                 <tr>
                     <td><code>repo_name</code></td>
@@ -494,6 +512,12 @@
 <script>
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
+let allFiles = [];
+
+function addFiles(files) {
+    Array.from(files).forEach(f => allFiles.push(f));
+    showFiles();
+}
 
 dropZone.addEventListener('click', () => fileInput.click());
 
@@ -502,18 +526,18 @@ dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover
 dropZone.addEventListener('drop', e => {
     e.preventDefault();
     dropZone.classList.remove('dragover');
-    const files = e.dataTransfer.files;
-    if (files.length) {
-        fileInput.files = files;
-        showFile(files[0].name);
-    }
+    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
 });
 fileInput.addEventListener('change', () => {
-    if (fileInput.files.length) showFile(fileInput.files[0].name);
+    if (fileInput.files.length) addFiles(fileInput.files);
+    fileInput.value = '';
 });
-function showFile(name) {
-    document.getElementById('dzFile').textContent = name;
-    dropZone.classList.add('has-file');
+
+function showFiles() {
+    const el = document.getElementById('dzCount');
+    const n = allFiles.length;
+    el.textContent = n + ' file' + (n > 1 ? 's' : '') + ' selected';
+    if (n) dropZone.classList.add('has-file');
 }
 
 function switchTab(event, tabId) {
@@ -538,7 +562,10 @@ document.querySelector('form').addEventListener('submit', function(e) {
     btnText.textContent = ' Generating...';
     btn.classList.add('btn-loading');
 
-    fetch('/', { method: 'POST', body: new FormData(this) })
+    const fd = new FormData(this);
+    fd.delete('file');
+    allFiles.forEach(f => fd.append('file', f));
+    fetch('/', { method: 'POST', body: fd })
         .then(r => {
             const ct = r.headers.get('content-type') || '';
             if (ct.includes('application/pdf')) return r.blob();
