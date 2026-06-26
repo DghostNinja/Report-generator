@@ -24,10 +24,18 @@ Format is **auto-detected** — just pipe the JSON and get a PDF back.
 
 ### Local Development
 
-**Quick start (recommended):**
+**Docker (recommended):**
 ```bash
 git clone https://github.com/DghostNinja/Report-generator.git
 cd Report-generator
+docker build -t sast-report .
+docker run -d -p 5000:5000 --name sast-report sast-report
+```
+
+Open [http://localhost:5000](http://localhost:5000).
+
+**Or run directly:**
+```bash
 pip install -r requirements.txt
 ./start.sh
 ```
@@ -37,8 +45,6 @@ Or step-by-step:
 cd web
 python app.py
 ```
-
-Open [http://localhost:5000](http://localhost:5000).
 
 ### Generate a Report
 

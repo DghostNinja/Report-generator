@@ -16,9 +16,7 @@ def normalize(data: dict) -> list[Finding]:
         severity = _compute_severity(r)
         extra = r.get('extra', {})
         meta = extra.get('metadata', {})
-        cwe = meta.get('cwe', [])
-        if isinstance(cwe, str):
-            cwe = [cwe]
+        cwe = _extract_cwe(meta)
         tech = meta.get('technology', [])
         if isinstance(tech, str):
             tech = [tech]
@@ -36,6 +34,22 @@ def normalize(data: dict) -> list[Finding]:
             technology=tech,
         ))
     return findings
+
+
+def _extract_cwe(meta: dict) -> list[str]:
+    raw = meta.get('cwe', [])
+    if isinstance(raw, str):
+        raw = [raw]
+    out = []
+    for c in raw:
+        c = str(c).strip()
+        # Extract just the CWE-XXX prefix if there's a full description
+        idx = c.find(':')
+        if idx != -1:
+            c = c[:idx].strip()
+        if c and c not in out:
+            out.append(c)
+    return out
 
 
 def _compute_severity(result: dict) -> str:
