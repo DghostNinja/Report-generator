@@ -158,14 +158,40 @@
             font-size: 2rem;
             margin-bottom: 0.5rem;
         }
-        .drop-zone .dz-count {
+        .drop-zone .dz-list {
             display: none;
-            font-size: 1rem;
+            text-align: left;
+            max-width: 80%;
+            margin: 0 auto;
+        }
+        .drop-zone .dz-list .file-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 0;
+            font-size: 0.85rem;
             color: #22c55e;
+        }
+        .drop-zone .dz-list .file-item .fi-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .drop-zone .dz-list .file-item .fi-remove {
+            cursor: pointer;
+            color: #dc2626;
             font-weight: bold;
+            font-size: 1rem;
+            line-height: 1;
+            padding: 0 4px;
+            flex-shrink: 0;
+        }
+        .drop-zone .dz-list .file-item .fi-remove:hover {
+            color: #ff4444;
         }
         .drop-zone.has-file .dz-prompt { display: none; }
-        .drop-zone.has-file .dz-count { display: block; }
+        .drop-zone.has-file .dz-list { display: block; }
         input[type="text"] {
             padding: 8px;
             font-size: 1rem;
@@ -377,9 +403,9 @@
             <div class="drop-zone" id="dropZone">
                 <div class="dz-icon">📄</div>
                 <div class="dz-prompt">Drop JSON file(s) here or click to browse</div>
-                <div class="dz-count" id="dzCount"></div>
+                <div class="dz-list" id="dzList"></div>
             </div>
-            <input type="file" name="file" id="fileInput" accept=".json" multiple required style="display:none">
+            <input type="file" name="file" id="fileInput" accept=".json" multiple style="display:none">
             <input type="text" name="repo_name" placeholder="Repository name (optional)">
             <button type="submit" id="generateBtn"><span class="spinner" id="spinner"></span><span id="btnText">Generate PDF Report</span></button>
         </form>
@@ -534,10 +560,22 @@ fileInput.addEventListener('change', () => {
 });
 
 function showFiles() {
-    const el = document.getElementById('dzCount');
-    const n = allFiles.length;
-    el.textContent = n + ' file' + (n > 1 ? 's' : '') + ' selected';
-    if (n) dropZone.classList.add('has-file');
+    const container = document.getElementById('dzList');
+    container.innerHTML = '';
+    allFiles.forEach((f, i) => {
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        item.innerHTML = '<span>\u{1F4C4}</span><span class="fi-name">' + f.name + '</span>' +
+            '<span class="fi-remove" data-index="' + i + '">\u2716</span>';
+        item.querySelector('.fi-remove').addEventListener('click', e => {
+            e.stopPropagation();
+            allFiles.splice(i, 1);
+            showFiles();
+            if (!allFiles.length) dropZone.classList.remove('has-file');
+        });
+        container.appendChild(item);
+    });
+    if (allFiles.length) dropZone.classList.add('has-file');
 }
 
 function switchTab(event, tabId) {
@@ -555,6 +593,10 @@ function copyCode(btn) {
 
 document.querySelector('form').addEventListener('submit', function(e) {
     e.preventDefault();
+    if (!allFiles.length && !fileInput.files.length) {
+        alert('Select or drop a JSON file first.');
+        return;
+    }
     const btn = document.getElementById('generateBtn');
     const spinner = document.getElementById('spinner');
     const btnText = document.getElementById('btnText');
@@ -564,7 +606,11 @@ document.querySelector('form').addEventListener('submit', function(e) {
 
     const fd = new FormData(this);
     fd.delete('file');
-    allFiles.forEach(f => fd.append('file', f));
+    if (allFiles.length) {
+        allFiles.forEach(f => fd.append('file', f));
+    } else {
+        Array.from(fileInput.files).forEach(f => fd.append('file', f));
+    }
     fetch('/', { method: 'POST', body: fd })
         .then(r => {
             const ct = r.headers.get('content-type') || '';
