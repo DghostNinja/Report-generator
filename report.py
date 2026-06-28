@@ -71,7 +71,7 @@ if not pdf_file.lower().endswith(".pdf"):
 # -----------------------------
 repo_name = input("Enter the repository name: ").strip()
 if not repo_name:
-    repo_name = os.path.basename(os.getcwd())
+    repo_name = 'Unknown'
 
 # -----------------------------
 # 4️⃣ Render HTML template

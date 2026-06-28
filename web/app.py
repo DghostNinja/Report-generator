@@ -413,7 +413,7 @@ def generate_pdf(data, repo_name: str) -> io.BytesIO:
     template = Template(REPORT_TEMPLATE, autoescape=True)
     html_out = template.render(
         tool_name=tool_name,
-        repo_name=repo_name or os.path.basename(os.getcwd()),
+        repo_name=repo_name or 'Unknown',
         scan_date=scan_date,
         scan_date_short=scan_date_short,
         total_findings=total_findings,
